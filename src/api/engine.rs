@@ -63,10 +63,11 @@ impl Board {
 }
 
 pub struct Game {
+    board: Board
 }
 
 impl Game {
-    pub fn get_winner(board: Board) {
+    pub fn get_winner(&self) {
         // check diag
 
         // check rows
