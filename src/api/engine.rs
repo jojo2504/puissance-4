@@ -1,6 +1,8 @@
 use core::fmt;
+use rand::seq::{IndexedMutRandom, SliceRandom};
+use rand::rng;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Copy)]
 pub enum Color {
     Red,
     Yellow,
@@ -63,10 +65,17 @@ impl Board {
 }
 
 pub struct Game {
-    board: Board
+    board: Board,
+    turn_color: Color
 }
 
 impl Game {
+    pub fn new(height: i32, width: i32) -> Self {
+        let mut available_colors = vec![Color::Yellow, Color::Red];
+        let color = available_colors.choose_mut(&mut rand::rng());
+        Self { turn_color: *color.unwrap(), board: Board::new(height, width)}
+    }
+
     pub fn get_winner(&self) {
         // check diag
 
