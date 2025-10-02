@@ -12,10 +12,8 @@ pub fn wait_for_input(prompt: &str) -> String {
 }
 
 pub fn play () {
-    let mut column_raw: String = String::new();
-
     while(true) {
-        column_raw = wait_for_input("Enter a column (1-8) : ");
+        let column_raw = wait_for_input("Enter a column (1-8) : ");
         if column_raw.eq("quit") {
             break;
         }
