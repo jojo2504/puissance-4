@@ -1,7 +1,7 @@
 use std::io;
 use std::io::prelude::*;
 
-pub fn wait_for_input(prompt: &str) -> String {
+pub fn input(prompt: &str) -> String {
     let mut input = String::new();
     print!("{}", prompt);
     io::stdout().flush().unwrap(); // Make sure the prompt is printed
@@ -12,8 +12,8 @@ pub fn wait_for_input(prompt: &str) -> String {
 }
 
 pub fn play () {
-    while(true) {
-        let column_raw = wait_for_input("Enter a column (1-8) : ");
+    loop {
+        let column_raw = input("Enter a column (1-8) : ");
         if column_raw.eq("quit") {
             break;
         }
@@ -27,7 +27,7 @@ pub fn play () {
             println!("Column chosen : {}", column);
         } else {
             println!("Invalid column entered (bad chars).");
-            continue
+            continue;
         }
     }
 }
