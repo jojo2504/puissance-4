@@ -1,6 +1,7 @@
 use core::fmt;
 use rand::seq::{IndexedMutRandom, SliceRandom};
 use rand::rng;
+use std::cmp;
 
 #[derive(Clone, PartialEq, Eq, Copy)]
 pub enum Color {
@@ -52,7 +53,7 @@ impl Board {
     }
 
     pub fn push(&mut self, col: i32, token: Color) {
-        if col < 1 || col > self.width - 1 {
+        if col < 1 || col > self.width {
             println!("invalid input");
             return;
         }
@@ -66,6 +67,7 @@ impl Board {
             }
         }
         self.board[row as usize][(col - 1) as usize] = token;
+        self.history.push((col - 1, row));
     }
 
     pub fn display_board(&self) {
@@ -95,11 +97,93 @@ impl Game {
         Self { turn_color: *color.unwrap(), board: Board::new(height, width)}
     }
 
-    pub fn get_winner(&self) {
-        // check diag
+    pub fn get_winner(&self) -> Color {
+        let last_entry = self.board.history.last().unwrap();
+        let current_x = last_entry.0;
+        let current_y = last_entry.1;
+        let current_token = &self.board.board[current_y as usize][current_x as usize];
 
-        // check rows
-        
-        // check cols
+        let mut is_win: bool = true;
+        let mut i = 0;
+
+        // COLUMNS
+        // Right direction
+        for x in current_x..cmp::min(current_x+4, self.board.width) {
+            let token = &self.board.board[current_y as usize][x as usize];
+            if token.eq(&Color::None) {
+                break;
+            }
+
+            if !token.eq(current_token) {
+                is_win = false;
+                break;
+            }
+
+            i += 1;
+        }
+        if is_win && i == 3 {
+            return current_token.clone();
+        }
+
+        // Left direction
+        i = 0;
+        is_win = true;
+        for x in Iterator::rev(cmp::max(current_x-4, 0)..current_x) {
+            let token: &Color = &self.board.board[current_y as usize][x as usize];
+            if token.eq(&Color::None) {
+                break;
+            }
+
+            if !token.eq(current_token) {
+                is_win = false;
+                break;
+            }
+
+            i += 1;
+        }
+        if is_win && i == 3 {
+            return current_token.clone();
+        }
+
+        // ROWS
+        // Bottom direction
+        i = 0;
+        is_win = true;
+        for y in current_y..cmp::min(current_y+4, self.board.height) {
+            let token = &self.board.board[y as usize][current_x as usize];
+            if token.eq(&Color::None) {
+                break;
+            }
+            
+            if !token.eq(current_token) {
+                is_win = false;
+                break;
+            }
+            i += 1;
+        }
+        if is_win && i == 3 {
+            return current_token.clone();
+        }
+
+        // Top direction
+        i = 0;
+        is_win = true;
+        for y in Iterator::rev(cmp::max(current_y-4, 0)..current_y) {
+            let token = &self.board.board[y as usize][current_x as usize];
+            if token.eq(&Color::None) {
+                break;
+            }
+
+            if !token.eq(current_token) {
+                is_win = false;
+                break;
+            }
+            i += 1;
+        }
+        if is_win && i == 3 {
+            return current_token.clone();
+        }
+
+        return Color::None;
     }
 }
