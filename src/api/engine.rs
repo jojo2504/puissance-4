@@ -20,8 +20,8 @@ impl fmt::Display for Color {
 }
 
 pub struct Board {
-    height: i32,
-    width: i32,
+    pub height: i32,
+    pub width: i32,
     board: Vec<Vec<Color>>,
     history: Vec<(i32, i32)> // row, col
 }
@@ -65,8 +65,8 @@ impl Board {
 }
 
 pub struct Game {
-    board: Board,
-    turn_color: Color
+    pub board: Board,
+    pub turn_color: Color
 }
 
 impl Game {

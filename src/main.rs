@@ -1,8 +1,21 @@
-use crate::api::engine::Game;
+use crate::{api::engine::{Color, Game}, gui::play};
 
 mod api;
 mod gui;
 
 fn main() {
-    let game = Game::new(6, 7);
+    let mut game = Game::new(6, 7);
+
+    loop {
+        let col = play::play(&game);
+        if game.turn_color == Color::Red {
+            game.board.push(col, Color::Red);
+            game.turn_color = Color::Yellow
+        }
+        else {
+            game.board.push(col, Color::Yellow);
+            game.turn_color = Color::Red
+        }
+        game.board.display_board();
+    }
 }

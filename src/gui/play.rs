@@ -1,5 +1,7 @@
-use std::io;
+use std::{io, process};
 use std::io::prelude::*;
+
+use crate::api::engine::Game;
 
 pub fn input(prompt: &str) -> String {
     let mut input = String::new();
@@ -11,20 +13,21 @@ pub fn input(prompt: &str) -> String {
     input.trim().to_string()
 }
 
-pub fn play () {
+pub fn play (game: &Game) -> i32 {
     loop {
         let column_raw = input("Enter a column (1-8) : ");
         if column_raw.eq("quit") {
-            break;
+            process::exit(0x0100);
         }
 
         if let Ok(column) = column_raw.trim().parse::<i32>() {
-            if !(1 <= column &&  column <= 8) {
+            if !(1 <= column &&  column <= game.board.width) {
                 println!("Invalid column entered (out of bounds).");
                 continue;
             }
-
             println!("Column chosen : {}", column);
+            return column;
+
         } else {
             println!("Invalid column entered (bad chars).");
             continue;
