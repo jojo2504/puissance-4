@@ -8,15 +8,10 @@ fn main() {
 
     loop {
         let col = play::play(&game);
-        if game.turn_color == Color::Red {
-            game.board.push(col, game.turn_color);
-            game.turn_color = Color::Yellow
-        }
-        else {
-            game.board.push(col, game.turn_color);
-            game.turn_color = Color::Red
-        }
-
+        game.board.push(col, game.turn_color);
+        game.turn_color = Color::from_int(Color::to_int(game.turn_color) ^ 1).unwrap();
         game.board.display_board();
+        
+        println!("{}", game.turn_color);
     }
 }
