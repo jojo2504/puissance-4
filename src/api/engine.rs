@@ -9,6 +9,21 @@ pub enum Color {
     None
 }
 
+impl Color {
+    pub fn to_int(self) -> u8 {
+        self as u8
+    }
+    
+    pub fn from_int(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(Color::Red),
+            1 => Some(Color::Yellow),
+            2 => Some(Color::None),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -45,6 +60,10 @@ impl Board {
         let mut row = self.height - 1;
         while self.board[row as usize][(col - 1) as usize] != Color::None {
             row -= 1;
+            if row == -1 {
+                println!("invalid input");
+                return;
+            }
         }
         self.board[row as usize][(col - 1) as usize] = token;
     }
