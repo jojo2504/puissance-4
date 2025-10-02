@@ -9,13 +9,14 @@ fn main() {
     loop {
         let col = play::play(&game);
         if game.turn_color == Color::Red {
-            game.board.push(col, Color::Red);
+            game.board.push(col, game.turn_color);
             game.turn_color = Color::Yellow
         }
         else {
-            game.board.push(col, Color::Yellow);
+            game.board.push(col, game.turn_color);
             game.turn_color = Color::Red
         }
+
         game.board.display_board();
     }
 }
