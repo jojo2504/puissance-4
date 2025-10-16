@@ -5,11 +5,10 @@ mod api;
 mod gui;
 
 fn main() {
-    println!("{}", File::FileA);
-    println!("{}", File::FileB);
-    println!("{}", File::FileC);
-    println!("{}", File::FileD);
-    println!("{}", File::FileE);
-    println!("{}", File::FileF);
-    println!("{}", File::FileG);
+    let mut game = Game::new();
+    
+    game.board.push(0, Color::Red);
+    game.board.display_board();
+    game.board.push(0, Color::Red);
+    game.board.display_board();
 }
