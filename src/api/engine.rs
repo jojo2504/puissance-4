@@ -1,6 +1,8 @@
 use core::{fmt};
 use ux::u42;
 
+const EMPTY_BOARD: u42 = u42::new(0);
+
 #[derive(Clone, PartialEq, Eq, Copy)]
 pub enum Color {
     Red,
@@ -32,25 +34,25 @@ impl fmt::Display for Color {
 
 #[derive(Clone, Copy)]
 pub enum File {
-    FileA = 0x810204081,
-    FileB = 0x1020408102,
-    FileC = 0x2040810204,
-    FileD = 0x4081020408,
-    FileE = 0x8102040810,
-    FileF = 0x10204081020,
-    FileG = 0x20408102040,
+    A = 0x810204081,
+    B = 0x1020408102,
+    C = 0x2040810204,
+    D = 0x4081020408,
+    E = 0x8102040810,
+    F = 0x10204081020,
+    G = 0x20408102040,
 }
 
 impl fmt::Display for File {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            File::FileA => write!(f, "Base 2 (binary): {:042b}", File::FileA as u64),
-            File::FileB => write!(f, "Base 2 (binary): {:042b}", File::FileB as u64),
-            File::FileC => write!(f, "Base 2 (binary): {:042b}", File::FileC as u64),
-            File::FileD => write!(f, "Base 2 (binary): {:042b}", File::FileD as u64),
-            File::FileE => write!(f, "Base 2 (binary): {:042b}", File::FileE as u64),
-            File::FileF => write!(f, "Base 2 (binary): {:042b}", File::FileF as u64),
-            File::FileG => write!(f, "Base 2 (binary): {:042b}", File::FileG as u64),
+            File::A => write!(f, "Base 2 (binary): {:042b}", File::A as u64),
+            File::B => write!(f, "Base 2 (binary): {:042b}", File::B as u64),
+            File::C => write!(f, "Base 2 (binary): {:042b}", File::C as u64),
+            File::D => write!(f, "Base 2 (binary): {:042b}", File::D as u64),
+            File::E => write!(f, "Base 2 (binary): {:042b}", File::E as u64),
+            File::F => write!(f, "Base 2 (binary): {:042b}", File::F as u64),
+            File::G => write!(f, "Base 2 (binary): {:042b}", File::G as u64),
         }
     }
 }
@@ -60,13 +62,13 @@ impl TryFrom<i32> for File {
 
     fn try_from(v: i32) -> Result<Self, Self::Error> {
         match v {
-            0 => Ok(File::FileA),
-            1 => Ok(File::FileB),
-            2 => Ok(File::FileC),
-            3 => Ok(File::FileD),
-            4 => Ok(File::FileE),
-            5 => Ok(File::FileF),
-            6 => Ok(File::FileG),
+            0 => Ok(File::A),
+            1 => Ok(File::B),
+            2 => Ok(File::C),
+            3 => Ok(File::D),
+            4 => Ok(File::E),
+            5 => Ok(File::F),
+            6 => Ok(File::G),
             _ => Err(()),
         }
     }
@@ -78,23 +80,16 @@ pub struct Board {
     bitboard: u42, // board is 7 col x 6 rows, same encoding as a chess board; (0, 0) is bottom left, going to right, then up
     yellow: u42,
     red: u42,
-    history: Vec<u42> // just keep the flipped bit in history
+    history: Vec<(u42, Color)> // just keep the flipped bit in history
 }
 
 fn get_msb(bitboard: u42) -> Option<u42> {
-    if bitboard == u42::new(0) {
+    if bitboard == EMPTY_BOARD {
         return None;
     }
 
-    let mut index = u42::new(0x20000000000); // represent 1 + 41 0 in binary
-    loop {
-        if index & bitboard == u42::new(0) {
-            index >>= 1;
-        }
-        else {
-            return Some(index);
-        }
-    }
+    let raw: u64 = bitboard.into();
+    return Some(u42::new(1) << (63 - raw.leading_zeros()));
 }
 
 impl Board {
@@ -104,31 +99,44 @@ impl Board {
         }
     }
 
-    fn push_helper(bitboard: &mut u42, color_bitboard: &mut u42, col: i32, history: &mut Vec<u42>) {
+    fn push(bitboard: &mut u42, color_bitboard: &mut u42, col: i32, history: &mut Vec<(u42, Color)>, token_color: Color) {
         if let Ok(file_mask) = File::try_from(col) {
             if *bitboard & u42::new(file_mask as u64) != u42::new(file_mask as u64) { // found that the col is not full
                 if let Some(place_index) = get_msb(*bitboard) {
                     *color_bitboard ^= place_index << 7;
                     *bitboard ^= place_index << 7;
-                    history.push(place_index << 7);
+                    history.push((place_index << 7, token_color));
                 }
                 else {
                     let default_index= u42::new(1 << col);
                     *color_bitboard ^= default_index;
                     *bitboard ^= default_index;
-                    history.push(default_index);
+                    history.push((default_index, token_color));
                 }
             }
         }
     }
 
-    pub fn push(&mut self, col: i32, token: Color) {
-        match token {
+    pub fn make_push(&mut self, col: i32, token_color: Color) {
+        match token_color {
             Color::Red => {
-                Self::push_helper(&mut self.bitboard, &mut self.red, col, &mut self.history);
+                Self::push(&mut self.bitboard, &mut self.red, col, &mut self.history, token_color);
             },
             Color::Yellow => {
-                Self::push_helper(&mut self.bitboard, &mut self.yellow, col, &mut self.history);
+                Self::push(&mut self.bitboard, &mut self.yellow, col, &mut self.history, token_color);
+            }
+        }
+    }
+
+    pub fn unmake_push(&mut self) {
+        let last_play = self.history.pop().unwrap();
+        self.bitboard ^= last_play.0;
+        match last_play.1 {
+            Color::Red => {
+                self.red ^= last_play.0;
+            },
+            Color::Yellow => {
+                self.yellow ^= last_play.0;
             }
         }
     }
@@ -140,10 +148,10 @@ impl Board {
         for row in (0..6).rev() {
             for col in 0..7 {
                 let index = row * 7 + col;
-                if u42::new(1 << index) & self.red != u42::new(0) {
+                if u42::new(1 << index) & self.red != EMPTY_BOARD {
                     print!("{} ", 'R');
                 }
-                else if u42::new(1 << index) & self.yellow != u42::new(0) {
+                else if u42::new(1 << index) & self.yellow != EMPTY_BOARD {
                     print!("{} ", 'Y');
                 }
                 else {
@@ -168,15 +176,24 @@ impl Game {
         }
     }
 
-    pub fn get_winner(&self) -> Color {
+    fn check_win(&self) -> Option<Color> {
         if let Some(last_flipped_bit) = self.board.history.last() {
             // horizontal check _
-            last_flipped_bit, last_flipped_bit >> 1, last_flipped_bit >> 2, last_flipped_bit >> 3,  
             // vertical check |
             // main diagonal check \
             // anti diagonal check /
         }
 
-        self.turn_color
+        None
+    }
+
+    fn run(&self) {
+        loop {
+            // user play()
+            if let Some(color) = self.check_win() {
+                // color won
+                break;
+            }
+        }
     }
 }
