@@ -15,13 +15,13 @@ const WIDTH: i32 = 7;
 #[derive(Clone, Copy, Default)]
 pub enum Color {
     #[default]
-    Red,
-    Yellow
+    Red = 1,
+    Yellow = -1
 }
 
 impl Color {
-    pub fn to_int(self) -> u64 {
-        self as u64
+    pub fn to_int(self) -> i32 {
+        self as i32
     }
     
     pub fn from_int(value: u64) -> Option<Self> {
@@ -113,9 +113,9 @@ impl TryFrom<i32> for File {
 #[derive(Default, Clone)]
 pub struct Board {
     // keeping track of global board to check for valid moves
-    bitboard: u42, // board is 7 col x 6 rows, same encoding as a chess board; (0, 0) is bottom left, going to right, then up
-    color_bitboard: u42,
-    history: Vec<(u42, Color)>, // just keep the flipped bit in history
+    pub bitboard: u42, // board is 7 col x 6 rows, same encoding as a chess board; (0, 0) is bottom left, going to right, then up
+    pub color_bitboard: u42,
+    pub history: Vec<(u42, Color)>, // just keep the flipped bit in history
     heights: [i32; 7]
 }
 
@@ -127,8 +127,8 @@ impl Board {
     }
 
     pub fn display_board(&self) {
-        let binary_board = format!("{:042b}", self.bitboard);
-        println!("{}", binary_board);
+        // let binary_board = format!("{:042b}", self.bitboard);
+        // println!("{}", binary_board);
         
         let (red, yellow): (u42, u42) = match self.history.len() & 1 {
             0 => (self.color_bitboard, self.color_bitboard ^ self.bitboard),
@@ -158,7 +158,7 @@ impl Board {
 pub struct Game {
     pub board: Board,
     pub turn_color: Color,
-    winner: Option<Color>,
+    pub winner: Option<Color>,
     zobrist_key: u64,
 }
 
@@ -203,6 +203,13 @@ impl Game {
         Self::push(&mut self.board.bitboard, &mut self.board.color_bitboard, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key, &mut self.board.heights);
         self.winner = self.check_win(); 
         self.turn_color = self.turn_color.toggle();
+    }
+
+    pub fn make_push_bulk(&mut self, action: &str) {
+        for char in action.chars().into_iter() {
+            let col: i32 = char.to_digit(10).unwrap() as i32;
+            self.make_push(col);
+        }
     }
 
     pub fn unmake_push(&mut self) {
@@ -337,6 +344,12 @@ static ZOBRIST_TABLE: Lazy<Zobrist> = Lazy::new(|| {
 impl Zobrist {
     fn get_index(play: (u42, Color)) -> u64 {
         let raw_u64: u64 = play.0.into();
-        play.1.to_int() * 42 + raw_u64.trailing_zeros() as u64
+        let offset = match play.1.to_int() {
+            1 => 0,
+            -1 => 1,
+            _ => unreachable!()
+        };
+
+        offset as u64 * 42 + raw_u64.trailing_zeros() as u64
     }
 }

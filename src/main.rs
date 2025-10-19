@@ -1,24 +1,48 @@
-use puissance_4::{api::engine::{Color, File, Game, Perft}, gui::play};
+use puissance_4::{api::{engine::{Color, File, Game, Perft}, search::{Evaluation, Search}}, gui::play};
 use colored::Colorize;
 
 fn main() {
     let mut game = Game::new();
 
-    game.make_push(0);
-    game.make_push(0);
-    game.unmake_push();
+    // game.make_push_bulk("334265443434");
+    // println!("board evaluation: {}", Evaluation::evaluate(&game.board));
+    // game.board.display_board();
+    // println!();
 
-    game.board.display_board();
+    //game.make_push(3);
+    // game.make_push(2);
+    // game.make_push(2);
+    // game.make_push(3);
 
-    if let Some(color) = game.check_win() {
-        match color {
-            Color::Red => println!("red won"),
-            Color::Yellow => println!("yellow won"),
+    let mut move_history = String::new();
+    
+    loop {
+        if let Some(best_move) = Search::think(&mut game) {
+            game.make_push(best_move);
+            println!("board evaluation: {}", Evaluation::evaluate(&game.board));
+            move_history += &best_move.to_string();
+            game.board.display_board();
+            println!();
+        }
+        else {
+            println!("{}", move_history);
+            break;
         }
     }
-    else {
-        println!("no one won");
-    }
+    
+    // game.make_push(0);
+    // game.make_push(0);
+    // game.unmake_push();
+
+    // if let Some(color) = game.check_win() {
+    //     match color {
+    //         Color::Red => println!("red won"),
+    //         Color::Yellow => println!("yellow won"),
+    //     }
+    // }
+    // else {
+    //     println!("no one won");
+    // }
 
     // let mut perft = Perft::new();
     // for i in 1..10 {
