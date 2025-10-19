@@ -5,6 +5,8 @@ use once_cell::sync::Lazy;
 use rand::random;
 use ux::u42;
 
+use crate::{api::search::Search, gui::play::play};
+
 const EMPTY_BOARD:  u42 = u42::new(0);
 
 const U42_ONE:      u42 = u42::new(1);
@@ -202,7 +204,7 @@ impl Game {
     
     pub fn make_push(&mut self, col: i32) {
         Self::push(&mut self.board.bitboard, &mut self.board.color_bitboard, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key, &mut self.board.heights);
-        //self.winner = self.check_win(); 
+        self.winner = self.check_win(); 
         self.turn_color = self.turn_color.toggle();
     }
 
@@ -260,8 +262,35 @@ impl Game {
         None
     }
 
-    fn run(&self) {
-        todo!()
+    pub fn run(&mut self) {
+        self.board.display_board();
+        println!();
+
+        loop {
+            println!("choose a col to play(0-6): ");
+            let col = play();
+            if !self.get_possible_moves().contains(&col) {
+                continue;
+            }
+            self.make_push(col);
+            self.board.display_board();
+            
+            if self.winner.is_some() {
+                println!("you won !");
+                break;
+            }
+
+            println!("AI is thinking...");
+            if let Some(best_move) = Search::think(self) {
+                self.make_push(best_move);
+                self.board.display_board();
+            }
+
+            if self.winner.is_some() {
+                println!("AI won!");
+                break;
+            }
+        }
     }
 }
 

@@ -3,7 +3,7 @@ use ux::u42;
 
 fn main() {
     let mut game = Game::new();
-
+    game.run();
     // game.make_push_bulk("50500101010"); // win by red vertical
     // game.make_push_bulk("111522234443"); // win by yellow horizontal
     // game.make_push_bulk("01122363433"); // win by red diag /
@@ -25,25 +25,25 @@ fn main() {
     //     println!("no one won");
     // }
     
-    let mut move_history = String::new();
-    loop {
-        if let Some(best_move) = Search::think(&mut game) {
-            game.make_push(best_move);
-            println!("board evaluation: {}", Evaluation::evaluate(&game.board));
-            move_history += &best_move.to_string();
-            game.board.display_board();
-            println!();
-        }
-        else {
-            match game.winner {
-                Some(Color::Red) => println!("red won"),
-                Some(Color::Yellow) => println!("yellow won"),
-                _ => println!("no winner ?")
-            }
-            println!("{}", move_history);
-            break;
-        }
-    }
+    // let mut move_history = String::new();
+    // loop {
+    //     if let Some(best_move) = Search::think(&mut game) {
+    //         game.make_push(best_move);
+    //         println!("board evaluation: {}", Evaluation::evaluate(&game.board));
+    //         move_history += &best_move.to_string();
+    //         game.board.display_board();
+    //         println!();
+    //     }
+    //     else {
+    //         match game.winner {
+    //             Some(Color::Red) => println!("red won"),
+    //             Some(Color::Yellow) => println!("yellow won"),
+    //             _ => println!("no winner ?")
+    //         }
+    //         println!("{}", move_history);
+    //         break;
+    //     }
+    // }
 
     // let mut perft = Perft::new();
     // for i in 1..10 {
