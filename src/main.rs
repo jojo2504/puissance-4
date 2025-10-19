@@ -1,23 +1,14 @@
-
-use crate::{api::engine::{Color, File, Game, Perft}, gui::play};
-
-mod api;
-mod gui;
+use puissance_4::{api::engine::{Color, File, Game, Perft}, gui::play};
+use colored::Colorize;
 
 fn main() {
-    // let a = 16;
-    // println!("{}", a / 7);
     // let mut game = Game::new();
-    // game.board.make_push(3, Color::Red);
-    // game.board.make_push(3, Color::Red);
-    // game.board.make_push(3, Color::Red);
-    // game.board.make_push(3, Color::Yellow);
-    // game.board.make_push(2, Color::Red);
-    // game.board.make_push(2, Color::Red);
-    // game.board.make_push(2, Color::Yellow);
-    // game.board.make_push(1, Color::Red);
-    // game.board.make_push(1, Color::Yellow);
-    // game.board.make_push(0, Color::Yellow);
+
+    // println!("{}", game.turn_color);
+
+    // game.make_push(0);
+    // game.make_push(0);
+    // game.unmake_push();
 
     // game.board.display_board();
 
@@ -32,6 +23,16 @@ fn main() {
     // }
 
     let mut perft = Perft::new();
-    println!("{}", perft.run(7));
+    for i in 1..10 {
+        perft.reset();
+        let perft_result = perft.run(i);
+        perft.reset();
+        let perft_tt_result = perft.run_tt(i);
+        
+        println!("perft_result: {}", perft_result);
+        println!("perft_tt_result: {}", perft_tt_result);
+        assert_eq!(perft_result, perft_tt_result);
+        println!("{}\n", format!("perft {} passed!", i).green());
+    }
 
 }

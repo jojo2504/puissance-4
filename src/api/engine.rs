@@ -1,20 +1,18 @@
 use core::{fmt};
-use std::{collections::HashMap};
+use std::{collections::HashMap, default};
 use once_cell::sync::Lazy;
 use rand::random;
 use ux::u42;
 
 const EMPTY_BOARD:  u42 = u42::new(0);
 
-const TOPRIGHT:     u42 = u42::new(0x20408102040 | 0x3F800000000);
-const BOTTOMLEFT:   u42 = u42::new(0x810204081 | 0x7F);
-const TOPLEFT:      u42 = u42::new(0x810204081 | 0x3F800000000);
-const BOTTOMRIGHT:  u42 = u42::new(0x20408102040 | 0x7F);
-
 const U42_ONE:      u42 = u42::new(1);
 const U42_LASTBIT:  u42 = u42::new(0x20000000000);
 
-#[derive(Clone, PartialEq, Eq, Copy, Default)]
+const HEIGHT: i32 = 6;
+const WIDTH: i32 = 7;
+
+#[derive(Clone, Copy, Default)]
 pub enum Color {
     #[default]
     Red,
@@ -66,6 +64,19 @@ impl File {
     pub fn mask(self) -> u42 {
         u42::new(self as u64)
     }
+
+    pub fn mask_unchecked(col: i32) -> u42 {
+        match col {
+            0 => File::A.mask(),
+            1 => File::B.mask(),
+            2 => File::C.mask(),
+            3 => File::D.mask(),
+            4 => File::E.mask(),
+            5 => File::F.mask(),
+            6 => File::G.mask(),
+            _ => panic!("invalid col")
+        }
+    }
 }
 
 impl fmt::Display for File {
@@ -103,8 +114,7 @@ impl TryFrom<i32> for File {
 pub struct Board {
     // keeping track of global board to check for valid moves
     bitboard: u42, // board is 7 col x 6 rows, same encoding as a chess board; (0, 0) is bottom left, going to right, then up
-    yellow: u42,
-    red: u42,
+    color_bitboard: u42,
     history: Vec<(u42, Color)> // just keep the flipped bit in history
 }
 
@@ -128,13 +138,17 @@ impl Board {
         let binary_board = format!("{:042b}", self.bitboard);
         println!("{}", binary_board);
         
-        for row in (0..6).rev() {
-            for col in 0..7 {
-                let index = row * 7 + col;
-                if u42::new(1 << index) & self.red != EMPTY_BOARD {
+        // ! bug here, temp
+        let red = self.color_bitboard;
+        let yellow = self.color_bitboard ^ self.bitboard;
+
+        for row in (0..HEIGHT).rev() {
+            for col in 0..WIDTH {
+                let index = row * WIDTH + col;
+                if u42::new(1 << index) & red != EMPTY_BOARD {
                     print!("{} ", 'R');
                 }
-                else if u42::new(1 << index) & self.yellow != EMPTY_BOARD {
+                else if u42::new(1 << index) & yellow != EMPTY_BOARD {
                     print!("{} ", 'Y');
                 }
                 else {
@@ -146,33 +160,10 @@ impl Board {
     }
 }
 
-fn count_direction(origin: u42, color: &u42, shift: i32, bound: u42) -> i32 {
-    let mut count = 0;
-    let mut mask = origin;
-
-    loop {
-        if mask & bound != EMPTY_BOARD {
-            break;
-        }
-        
-        if shift > 0 {
-            mask <<= shift;
-        }
-        else {
-            mask >>= -shift;
-        }
-        
-        if mask & *color != EMPTY_BOARD {
-            count += 1;
-        }
-    }
-    count
-}
-
 #[derive(Default)]
 pub struct Game {
-    board: Board,
-    turn_color: Color,
+    pub board: Board,
+    pub turn_color: Color,
     winner: Option<Color>,
     zobrist_key: u64
 }
@@ -180,7 +171,6 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         Self {
-            board: Board::new(),
             ..Default::default()
         }
     }
@@ -188,14 +178,14 @@ impl Game {
     // returns a vec of possible col to play
     pub fn get_possible_moves(&self) -> Vec<i32> {
         let mut result = Vec::new();
-        result.reserve_exact(7);
+        result.reserve_exact(WIDTH as usize);
 
         if self.winner.is_some() {
             return result;
         }
 
         let mut origin = U42_LASTBIT;
-        for i in (0..7).rev() {
+        for i in (0..WIDTH).rev() {
             if origin & self.board.bitboard == EMPTY_BOARD {
                 result.push(i);
             }
@@ -206,33 +196,23 @@ impl Game {
 
     // we are assuming the input col has already been validated
     fn push(bitboard: &mut u42, color_bitboard: &mut u42, col: i32, history: &mut Vec<(u42, Color)>, token_color: Color, zobrist_key: &mut u64) {
-        if let Ok(file) = File::try_from(col) {
-            if let Some(place_index) = get_msb(*bitboard & file.mask()) {
-                let future_place_index = place_index << 7;
-                *color_bitboard ^= future_place_index;
-                *bitboard ^= future_place_index;
-                history.push((future_place_index, token_color));
-                *zobrist_key ^= ZOBRIST_TABLE.token_square[Zobrist::get_index((future_place_index, token_color)) as usize];
-            }
-            else {
-                let default_index= u42::new(1 << col);
-                *color_bitboard ^= default_index;
-                *bitboard ^= default_index;
-                history.push((default_index, token_color));
-                *zobrist_key ^= ZOBRIST_TABLE.token_square[Zobrist::get_index((default_index, token_color)) as usize];
-            }
-        }
+        let file_mask = File::mask_unchecked(col); // Add this method if possible
+        let masked = *bitboard & file_mask;
+        
+        let place_index = if let Some(msb) = get_msb(masked) {
+            msb << WIDTH  // Next position up
+        } else {
+            u42::new(1 << col)  // Bottom row
+        };
+                
+        *color_bitboard ^= *bitboard;
+        *bitboard ^= place_index;
+        history.push((place_index, token_color));
+        *zobrist_key ^= ZOBRIST_TABLE.token_square[Zobrist::get_index((place_index, token_color)) as usize];
     }
     
     pub fn make_push(&mut self, col: i32) {
-        match self.turn_color {
-            Color::Red => {
-                Self::push(&mut self.board.bitboard, &mut self.board.red, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key);
-            },
-            Color::Yellow => {
-                Self::push(&mut self.board.bitboard, &mut self.board.yellow, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key);
-            }
-        }
+        Self::push(&mut self.board.bitboard, &mut self.board.color_bitboard, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key);
         self.winner = self.check_win(); 
         self.turn_color = self.turn_color.toggle();
     }
@@ -243,98 +223,49 @@ impl Game {
         self.zobrist_key ^= ZOBRIST_TABLE.token_square[Zobrist::get_index(last_play) as usize];
 
         self.board.bitboard ^= last_play.0;
-        match last_play.1 {
-            Color::Red => {
-                self.board.red ^= last_play.0;
-            },
-            Color::Yellow => {
-                self.board.yellow ^= last_play.0;
-            }
-        }
+        self.board.color_bitboard ^= self.board.bitboard;
 
         self.winner = None;
     }
 
     pub fn check_win(&self) -> Option<Color> {
         if let Some(last_flipped_bit) = self.board.history.last() {
-            let raw_u64: u64 = last_flipped_bit.0.into();
-            let index = raw_u64.trailing_zeros();
-            let col = index % 7;
-            let color;
-            match last_flipped_bit.1 {
-                Color::Red => color = &self.board.red,
-                Color::Yellow => color = &self.board.yellow,
-            }
-
-            // horizontal check _
-            let mut origin = last_flipped_bit.0 >> col;
-            let mut counter = 0;
-            for _ in 0..7 {
-                if origin & *color != EMPTY_BOARD {
-                    counter += 1;
-                }
-                else {
-                    counter = 0;
-                }
-                origin <<= 1;
-                if counter >= 4 {
-                    return Some(last_flipped_bit.1);
-                }
-            }
-
-            // vertical check |
-            origin = u42::new(1 << col);
-            for _ in 0..6 {
-                if origin & *color != EMPTY_BOARD {
-                    counter += 1;
-                }
-                else {
-                    counter = 0;
-                }
-                origin <<= 7;
-                if counter >= 4 {
-                    return Some(last_flipped_bit.1);
-                }
-            }
-
-            // anti diagonal check /
-            let mut diag_counter = 1;
-            diag_counter += count_direction(last_flipped_bit.0, color, 8, TOPRIGHT);  // if n>0  << n, top direction
-            diag_counter += count_direction(last_flipped_bit.0, color, -8, BOTTOMLEFT); // if n<0  >> -n, 
-            if diag_counter >= 4 {
+            // vertical;
+            let mut m = self.board.color_bitboard & (self.board.color_bitboard >> (HEIGHT+1));
+            if (m & (m >> (2*(HEIGHT+1)))) != EMPTY_BOARD {
                 return Some(last_flipped_bit.1);
             }
             
-            // main diagonal check \ >> 8 
-            diag_counter = 1; 
-            diag_counter += count_direction(last_flipped_bit.0, color, 6, TOPLEFT);  // if n>0  << n, top direction
-            diag_counter += count_direction(last_flipped_bit.0, color, -6, BOTTOMRIGHT); // if n<0  >> -n 
-            if diag_counter >= 4 {
+            // horizontal 
+            m = self.board.color_bitboard & (self.board.color_bitboard >> 1);
+            if (m & (m >> 2)) != EMPTY_BOARD {
+                return Some(last_flipped_bit.1);
+            }
+
+            // diagonal 1
+            m = self.board.color_bitboard & (self.board.color_bitboard >> HEIGHT);
+            if (m & (m >> (2*HEIGHT))) != EMPTY_BOARD {
                 return Some(last_flipped_bit.1);
             }
             
-        }
-        else {
-            println!("ah");
+            // diagonal 2 
+            m = self.board.color_bitboard & (self.board.color_bitboard >> (HEIGHT+2));
+            if (m & (m >> (2*(HEIGHT+2)))) != EMPTY_BOARD{
+                return Some(last_flipped_bit.1);
+            }
         }
 
         None
     }
 
     fn run(&self) {
-        loop {
-            // user play()
-            if let Some(color) = self.check_win() {
-                // color won
-                break;
-            }
-        }
+        todo!()
     }
 }
 
 #[derive(Default)]
 pub struct Perft {
-    game: Game,
+    pub game: Game,
     tt: HashMap<(u64, i32), u64>
 }
 
@@ -343,7 +274,25 @@ impl Perft {
         Self { ..Default::default() }
     }
     
-    pub fn run(&mut self, depth: i32) -> u64 {
+    pub fn run(&mut self, depth: i32) -> u64 {        
+        let possible_moves = self.game.get_possible_moves();
+        
+        if depth == 1 {
+            let count = possible_moves.len() as u64;
+            return count;
+        } 
+        
+        let mut nodes: u64 = 0;
+        for possible_move in possible_moves {
+            self.game.make_push(possible_move);
+            nodes += self.run(depth - 1);
+            self.game.unmake_push();
+        }
+
+        nodes
+    }
+
+    pub fn run_tt(&mut self, depth: i32) -> u64 {
         if let Some(&cached) = self.tt.get(&(self.game.zobrist_key, depth)) {
             return cached;
         }
@@ -365,6 +314,11 @@ impl Perft {
 
         self.tt.insert((self.game.zobrist_key, depth), nodes);
         nodes
+    }
+
+    pub fn reset(&mut self) {
+        self.tt.clear();
+        self.game = Default::default();
     }
 }
 
