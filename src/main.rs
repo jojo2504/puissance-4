@@ -1,5 +1,4 @@
 use puissance_4::{api::{engine::{Color, File, Game, Perft}, search::{Evaluation, Search}}, gui::play};
-use colored::Colorize;
 
 fn main() {
     let mut game = Game::new();
@@ -25,6 +24,11 @@ fn main() {
             println!();
         }
         else {
+            match game.winner {
+                Some(Color::Red) => println!("red won"),
+                Some(Color::Yellow) => println!("yellow won"),
+                _ => println!("no winner ?")
+            }
             println!("{}", move_history);
             break;
         }

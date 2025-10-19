@@ -1,5 +1,6 @@
 use core::{fmt};
 use std::{collections::HashMap, default};
+use colored::Colorize;
 use once_cell::sync::Lazy;
 use rand::random;
 use ux::u42;
@@ -140,10 +141,10 @@ impl Board {
             for col in 0..WIDTH {
                 let index = row * WIDTH + col;
                 if u42::new(1 << index) & red != EMPTY_BOARD {
-                    print!("{} ", 'R');
+                    print!("{} ", "R".red());
                 }
                 else if u42::new(1 << index) & yellow != EMPTY_BOARD {
-                    print!("{} ", 'Y');
+                    print!("{} ", "Y".yellow());
                 }
                 else {
                     print!("{} ", '0');
