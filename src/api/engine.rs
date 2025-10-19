@@ -110,7 +110,7 @@ impl TryFrom<i32> for File {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Board {
     // keeping track of global board to check for valid moves
     bitboard: u42, // board is 7 col x 6 rows, same encoding as a chess board; (0, 0) is bottom left, going to right, then up
