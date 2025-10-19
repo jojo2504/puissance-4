@@ -115,16 +115,8 @@ pub struct Board {
     // keeping track of global board to check for valid moves
     bitboard: u42, // board is 7 col x 6 rows, same encoding as a chess board; (0, 0) is bottom left, going to right, then up
     color_bitboard: u42,
-    history: Vec<(u42, Color)> // just keep the flipped bit in history
-}
-
-fn get_msb(bitboard: u42) -> Option<u42> {
-    if bitboard == EMPTY_BOARD {
-        return None;
-    }
-
-    let raw: u64 = bitboard.into();
-    return Some(U42_ONE << (63 - raw.leading_zeros()));
+    history: Vec<(u42, Color)>, // just keep the flipped bit in history
+    heights: [i32; 7]
 }
 
 impl Board {
@@ -138,9 +130,11 @@ impl Board {
         let binary_board = format!("{:042b}", self.bitboard);
         println!("{}", binary_board);
         
-        // ! bug here, temp
-        let red = self.color_bitboard;
-        let yellow = self.color_bitboard ^ self.bitboard;
+        let (red, yellow): (u42, u42) = match self.history.len() & 1 {
+            0 => (self.color_bitboard, self.color_bitboard ^ self.bitboard),
+            1 => (self.color_bitboard ^ self.bitboard, self.color_bitboard),
+            _ => unreachable!(),
+        };
 
         for row in (0..HEIGHT).rev() {
             for col in 0..WIDTH {
@@ -165,7 +159,7 @@ pub struct Game {
     pub board: Board,
     pub turn_color: Color,
     winner: Option<Color>,
-    zobrist_key: u64
+    zobrist_key: u64,
 }
 
 impl Game {
@@ -195,24 +189,18 @@ impl Game {
     }
 
     // we are assuming the input col has already been validated
-    fn push(bitboard: &mut u42, color_bitboard: &mut u42, col: i32, history: &mut Vec<(u42, Color)>, token_color: Color, zobrist_key: &mut u64) {
-        let file_mask = File::mask_unchecked(col); // Add this method if possible
-        let masked = *bitboard & file_mask;
-        
-        let place_index = if let Some(msb) = get_msb(masked) {
-            msb << WIDTH  // Next position up
-        } else {
-            u42::new(1 << col)  // Bottom row
-        };
-                
+    fn push(bitboard: &mut u42, color_bitboard: &mut u42, col: i32, history: &mut Vec<(u42, Color)>, token_color: Color, zobrist_key: &mut u64, heights: &mut [i32; 7]) {
+        let new_bit = u42::new(1u64 << (col + heights[col as usize] * WIDTH));
+        heights[col as usize] += 1;
+
         *color_bitboard ^= *bitboard;
-        *bitboard ^= place_index;
-        history.push((place_index, token_color));
-        *zobrist_key ^= ZOBRIST_TABLE.token_square[Zobrist::get_index((place_index, token_color)) as usize];
+        *bitboard ^= new_bit;
+        history.push((new_bit, token_color));
+        *zobrist_key ^= ZOBRIST_TABLE.token_square[Zobrist::get_index((new_bit, token_color)) as usize];
     }
     
     pub fn make_push(&mut self, col: i32) {
-        Self::push(&mut self.board.bitboard, &mut self.board.color_bitboard, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key);
+        Self::push(&mut self.board.bitboard, &mut self.board.color_bitboard, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key, &mut self.board.heights);
         self.winner = self.check_win(); 
         self.turn_color = self.turn_color.toggle();
     }
@@ -224,6 +212,9 @@ impl Game {
 
         self.board.bitboard ^= last_play.0;
         self.board.color_bitboard ^= self.board.bitboard;
+        
+        let col: u64 = last_play.0.into();
+        self.board.heights[(col.trailing_zeros() % 7) as usize] -= 1;
 
         self.winner = None;
     }
