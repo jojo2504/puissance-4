@@ -267,13 +267,14 @@ impl Game {
         println!();
 
         loop {
-            println!("choose a col to play(0-6): ");
-            let col = play();
+            println!("choose a col to play(1-7): ");
+            let col = play() - 1;
             if !self.get_possible_moves().contains(&col) {
                 continue;
             }
             self.make_push(col);
             self.board.display_board();
+            println!();
             
             if self.winner.is_some() {
                 println!("you won !");
@@ -284,6 +285,7 @@ impl Game {
             if let Some(best_move) = Search::think(self) {
                 self.make_push(best_move);
                 self.board.display_board();
+                println!();
             }
 
             if self.winner.is_some() {
