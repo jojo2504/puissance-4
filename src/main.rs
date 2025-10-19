@@ -1,20 +1,31 @@
 use puissance_4::{api::{engine::{Color, File, Game, Perft}, search::{Evaluation, Search}}, gui::play};
+use ux::u42;
 
 fn main() {
     let mut game = Game::new();
 
-    // game.make_push_bulk("334265443434");
-    // println!("board evaluation: {}", Evaluation::evaluate(&game.board));
-    // game.board.display_board();
-    // println!();
+    // game.make_push_bulk("50500101010"); // win by red vertical
+    // game.make_push_bulk("111522234443"); // win by yellow horizontal
+    // game.make_push_bulk("01122363433"); // win by red diag /
 
-    //game.make_push(3);
-    // game.make_push(2);
-    // game.make_push(2);
-    // game.make_push(3);
-
-    let mut move_history = String::new();
+    // game.make_push_bulk("32211210000"); // win by red diag \
     
+    // game.make_push_bulk("4341110000"); // no win \
+    
+    //game.make_push_bulk("01122323433");
+    
+    // game.board.display_board();
+    // if let Some(color) = game.check_win() {
+    //     match color {
+    //         Color::Red => println!("red won"),
+    //         Color::Yellow => println!("yellow won"),
+    //     }
+    // }
+    // else {
+    //     println!("no one won");
+    // }
+    
+    let mut move_history = String::new();
     loop {
         if let Some(best_move) = Search::think(&mut game) {
             game.make_push(best_move);
@@ -33,20 +44,6 @@ fn main() {
             break;
         }
     }
-    
-    // game.make_push(0);
-    // game.make_push(0);
-    // game.unmake_push();
-
-    // if let Some(color) = game.check_win() {
-    //     match color {
-    //         Color::Red => println!("red won"),
-    //         Color::Yellow => println!("yellow won"),
-    //     }
-    // }
-    // else {
-    //     println!("no one won");
-    // }
 
     // let mut perft = Perft::new();
     // for i in 1..10 {

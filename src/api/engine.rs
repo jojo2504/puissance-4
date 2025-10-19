@@ -202,7 +202,7 @@ impl Game {
     
     pub fn make_push(&mut self, col: i32) {
         Self::push(&mut self.board.bitboard, &mut self.board.color_bitboard, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key, &mut self.board.heights);
-        self.winner = self.check_win(); 
+        //self.winner = self.check_win(); 
         self.turn_color = self.turn_color.toggle();
     }
 
@@ -229,27 +229,30 @@ impl Game {
 
     pub fn check_win(&self) -> Option<Color> {
         if let Some(last_flipped_bit) = self.board.history.last() {
+            let color_bitboard = self.board.color_bitboard ^ self.board.bitboard;
+            
             // vertical;
-            let mut m = self.board.color_bitboard & (self.board.color_bitboard >> (HEIGHT+1));
-            if (m & (m >> (2*(HEIGHT+1)))) != EMPTY_BOARD {
+            // println!("color board: {:042b}", color_bitboard);
+            let mut m = color_bitboard & (color_bitboard >> (WIDTH));
+            if (m & (m >> (2*(WIDTH)))) != EMPTY_BOARD {
                 return Some(last_flipped_bit.1);
             }
             
             // horizontal 
-            m = self.board.color_bitboard & (self.board.color_bitboard >> 1);
+            m = color_bitboard & (color_bitboard >> 1);
             if (m & (m >> 2)) != EMPTY_BOARD {
                 return Some(last_flipped_bit.1);
             }
 
-            // diagonal 1
-            m = self.board.color_bitboard & (self.board.color_bitboard >> HEIGHT);
-            if (m & (m >> (2*HEIGHT))) != EMPTY_BOARD {
+            // Diagonal ↗ (up-right) - shift by WIDTH+1, go down left
+            m = color_bitboard & (color_bitboard >> (WIDTH + 1)) & !File::G.mask();
+            if (m & (m >> (2*(WIDTH + 1)))) != EMPTY_BOARD {
                 return Some(last_flipped_bit.1);
             }
-            
-            // diagonal 2 
-            m = self.board.color_bitboard & (self.board.color_bitboard >> (HEIGHT+2));
-            if (m & (m >> (2*(HEIGHT+2)))) != EMPTY_BOARD{
+
+            // Diagonal ↖ (up-left) - shift by WIDTH-1, go down right
+            m = color_bitboard & (color_bitboard >> (WIDTH - 1)) & !File::A.mask();
+            if (m & (m >> (2*(WIDTH - 1)))) != EMPTY_BOARD {
                 return Some(last_flipped_bit.1);
             }
         }
