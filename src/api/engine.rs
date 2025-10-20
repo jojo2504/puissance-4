@@ -149,10 +149,14 @@ impl Board {
                     print!("{} ", "Y".yellow());
                 }
                 else {
-                    print!("{} ", '0');
+                    print!("{} ", '·');
                 }
             }
             println!();
+        }
+
+        for i in 1..8 {
+            print!("{} ", i);
         }
     }
 }
