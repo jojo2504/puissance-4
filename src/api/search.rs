@@ -7,7 +7,7 @@ pub struct Search;
 
 impl Search {
     fn negamax(game: &mut Game, depth: i32, mut alpha: i32, beta: i32, color: i32) -> i32 {
-        if depth == 0 {
+        if depth == 0 || game.winner.is_some() {
             return color * Evaluation::evaluate(&game.board);
         }
 
@@ -35,7 +35,8 @@ impl Search {
 
         for _move in all_moves {
             game.make_push(_move);
-            let move_score = Search::negamax(game, 9, i32::MIN, i32::MAX, game.turn_color.to_int()).saturating_neg();
+            let move_score = Search::negamax(game, 8, i32::MIN, i32::MAX, game.turn_color.to_int()).saturating_neg();
+            // println!("{}: {}", move_score, _move);
             game.unmake_push();
 
             if move_score > best_score {

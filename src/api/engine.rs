@@ -237,24 +237,29 @@ impl Game {
             // println!("color board: {:042b}", color_bitboard);
             let mut m = color_bitboard & (color_bitboard >> (WIDTH));
             if (m & (m >> (2*(WIDTH)))) != EMPTY_BOARD {
+                // println!("win v");
                 return Some(last_flipped_bit.1);
             }
             
-            // horizontal 
-            m = color_bitboard & (color_bitboard >> 1);
-            if (m & (m >> 2)) != EMPTY_BOARD {
+            // horizontal, go left and right
+            let m1 = color_bitboard & (color_bitboard >> 1) & !File::A.mask() & !File::G.mask();
+            let m2 = color_bitboard & (color_bitboard << 1) & !File::A.mask() & !File::G.mask();
+            if (m1 & (m1 >> 2)) != EMPTY_BOARD || (m2 & (m2 << 2)) != EMPTY_BOARD {
+                // println!("win h: {:042b}", m);
                 return Some(last_flipped_bit.1);
             }
-
+            
             // Diagonal ↗ (up-right) - shift by WIDTH+1, go down left
             m = color_bitboard & (color_bitboard >> (WIDTH + 1)) & !File::G.mask();
             if (m & (m >> (2*(WIDTH + 1)))) != EMPTY_BOARD {
+                // println!("win /");
                 return Some(last_flipped_bit.1);
             }
 
             // Diagonal ↖ (up-left) - shift by WIDTH-1, go down right
             m = color_bitboard & (color_bitboard >> (WIDTH - 1)) & !File::A.mask();
             if (m & (m >> (2*(WIDTH - 1)))) != EMPTY_BOARD {
+                // println!("win \\");
                 return Some(last_flipped_bit.1);
             }
         }
@@ -266,6 +271,7 @@ impl Game {
         self.board.display_board();
         println!();
 
+        let mut move_history = String::new();
         loop {
             println!("choose a col to play(1-7): ");
             let col = play() - 1;
@@ -273,6 +279,8 @@ impl Game {
                 continue;
             }
             self.make_push(col);
+            move_history += &col.to_string();
+
             self.board.display_board();
             println!();
             
@@ -284,6 +292,7 @@ impl Game {
             println!("AI is thinking...");
             if let Some(best_move) = Search::think(self) {
                 self.make_push(best_move);
+                move_history += &best_move.to_string();
                 self.board.display_board();
                 println!();
             }
@@ -292,6 +301,28 @@ impl Game {
                 println!("AI won!");
                 break;
             }
+        }
+
+        println!("{}", move_history);
+
+    }
+
+    pub fn reset(&mut self) {
+        *self = Default::default();
+    }
+
+    pub fn test_bulk(&mut self, history: &str) {
+        self.reset();
+        self.make_push_bulk(history);
+        self.board.display_board();
+        if let Some(color) = self.check_win() {
+            match color {
+                Color::Red => println!("red won"),
+                Color::Yellow => println!("yellow won"),
+            }
+        }
+        else {
+            println!("no one won");
         }
     }
 }
