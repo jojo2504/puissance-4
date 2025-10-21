@@ -1,15 +1,15 @@
 use core::{fmt};
-use std::{collections::HashMap, default};
+use std::{collections::HashMap};
 use colored::Colorize;
 use once_cell::sync::Lazy;
 use rand::random;
 use ux::u42;
 
-use crate::{api::search::Search, gui::play::play};
+use crate::{api::search::{Search, TTEntry}, gui::play::play};
 
 const EMPTY_BOARD:  u42 = u42::new(0);
 
-const U42_ONE:      u42 = u42::new(1);
+// const U42_ONE:      u42 = u42::new(1);
 const U42_LASTBIT:  u42 = u42::new(0x20000000000);
 
 const HEIGHT: i32 = 6;
@@ -158,6 +158,7 @@ impl Board {
         for i in 1..8 {
             print!("{} ", i);
         }
+        println!("\n");
     }
 }
 
@@ -166,7 +167,8 @@ pub struct Game {
     pub board: Board,
     pub turn_color: Color,
     pub winner: Option<Color>,
-    zobrist_key: u64,
+    pub tt: HashMap<u64, TTEntry>, // zobrist_key, TTEntry
+    pub zobrist_key: u64
 }
 
 impl Game {
@@ -237,11 +239,11 @@ impl Game {
         if let Some(last_flipped_bit) = self.board.history.last() {
             let color_bitboard = self.board.color_bitboard ^ self.board.bitboard;
             
-            // vertical;
+            // vertical go down;
             // println!("color board: {:042b}", color_bitboard);
             let mut m = color_bitboard & (color_bitboard >> (WIDTH));
             if (m & (m >> (2*(WIDTH)))) != EMPTY_BOARD {
-                // println!("win v");
+                println!("win v");
                 return Some(last_flipped_bit.1);
             }
             
@@ -249,21 +251,21 @@ impl Game {
             let m1 = color_bitboard & (color_bitboard >> 1) & !File::A.mask() & !File::G.mask();
             let m2 = color_bitboard & (color_bitboard << 1) & !File::A.mask() & !File::G.mask();
             if (m1 & (m1 >> 2)) != EMPTY_BOARD || (m2 & (m2 << 2)) != EMPTY_BOARD {
-                // println!("win h: {:042b}", m);
+                println!("win h: {:042b}", m);
                 return Some(last_flipped_bit.1);
             }
             
             // Diagonal ↗ (up-right) - shift by WIDTH+1, go down left
             m = color_bitboard & (color_bitboard >> (WIDTH + 1)) & !File::G.mask();
             if (m & (m >> (2*(WIDTH + 1)))) != EMPTY_BOARD {
-                // println!("win /");
+                println!("win /");
                 return Some(last_flipped_bit.1);
             }
 
             // Diagonal ↖ (up-left) - shift by WIDTH-1, go down right
             m = color_bitboard & (color_bitboard >> (WIDTH - 1)) & !File::A.mask();
             if (m & (m >> (2*(WIDTH - 1)))) != EMPTY_BOARD {
-                // println!("win \\");
+                println!("win \\");
                 return Some(last_flipped_bit.1);
             }
         }

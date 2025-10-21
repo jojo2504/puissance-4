@@ -4,7 +4,7 @@ use ux::u42;
 
 fn main() {
     let mut game = Game::new();
-    game.run();
+    //game.run();
 
     // game.make_push_bulk("50500101010"); // win by red vertical
     // game.make_push_bulk("111522234443"); // win by yellow horizontal
@@ -16,13 +16,14 @@ fn main() {
     
     // game.make_push_bulk("33335225644441430066655534665");
     
-    //game.make_push_bulk("112263364400");
+    // game.make_push_bulk("112263364400");
     // game.make_push_bulk("6140166111015");
     // println!("board evaluation: {}", Evaluation::evaluate(&game.board));
-    
+    // game.board.display_board();
     // game.test_bulk("0011223");
     // game.test_bulk("6140166111015");
     // game.test_bulk("6655443");
+    game.test_bulk("23365636636535655531210112221140");
 
     // let mut move_history = String::new();
     // loop {

@@ -1,17 +1,52 @@
 use std::cmp::max;
 use ux::u42;
 
-use crate::api::engine::{Board, Color, Game};
+use crate::api::engine::{Board, File, Game};
+
+#[derive(Default)]
+enum NodeType {
+    EXACT,
+    LOWERBOUND,
+    UPPERBOUND,
+    #[default]
+    None
+}
+
+#[derive(Default)]
+pub struct TTEntry {
+    flag: NodeType,
+    depth: i32,
+    value: i32
+}
+
+impl TTEntry {
+    pub fn new() -> Self {
+        Self {..Default::default()}
+    }
+}
 
 pub struct Search;
 
 impl Search {
     fn negamax(game: &mut Game, depth: i32, mut alpha: i32, beta: i32, color: i32) -> i32 {
+        let alpha_orig = alpha;
+        
+        if let Some(tt_entry) = game.tt.get(&game.zobrist_key) && tt_entry.depth >= depth {
+            match tt_entry.flag {
+                NodeType::EXACT => return tt_entry.value,
+                NodeType::LOWERBOUND if tt_entry.value >= beta => return tt_entry.value,
+                NodeType::UPPERBOUND if tt_entry.value <= alpha => return tt_entry.value,
+                _ => ()
+            }
+        }
+
         if depth == 0 || game.winner.is_some() {
             return color * Evaluation::evaluate(&game.board);
         }
 
-        let child_nodes = game.get_possible_moves();
+        let mut child_nodes = game.get_possible_moves();
+        child_nodes.sort_by_key(|&m| (m - 3).abs());
+        
         let mut best_score = i32::MIN;
 
         for child in child_nodes {
@@ -25,6 +60,20 @@ impl Search {
             }
         }
 
+        let mut tt_entry = TTEntry::new();
+        if best_score <= alpha_orig {
+            tt_entry.flag = NodeType::UPPERBOUND;
+        }
+        else if best_score >= beta {
+            tt_entry.flag = NodeType::LOWERBOUND;
+        }
+        else {
+            tt_entry.flag = NodeType::EXACT;
+        }
+
+        tt_entry.depth = depth;
+        game.tt.insert(game.zobrist_key, tt_entry);
+
         return best_score;
     }
 
@@ -35,7 +84,7 @@ impl Search {
 
         for _move in all_moves {
             game.make_push(_move);
-            let move_score = Search::negamax(game, 8, i32::MIN, i32::MAX, game.turn_color.to_int()).saturating_neg();
+            let move_score = Search::negamax(game, 14, i32::MIN, i32::MAX, game.turn_color.to_int()).saturating_neg();
             // println!("{}: {}", move_score, _move);
             game.unmake_push();
 
@@ -136,6 +185,12 @@ impl Evaluation {
     pub fn evaluate(board: &Board) -> i32 {
         let mut score = 0;
         score += Evaluation::evaluation_window(board);
+
+        let center_mask = File::D.mask();
+        let center_pieces_raw: u64 = (board.color_bitboard & center_mask).into();
+        let center_pieces = center_pieces_raw.count_ones() as i32;
+        score += center_pieces * 3;
+
         score
     }
 }
@@ -143,19 +198,4 @@ impl Evaluation {
 struct IterativeDeepening;
 
 impl IterativeDeepening {
-}
-
-fn display_u42(bitboard: u42) {
-    for row in (0..6).rev() {
-        for col in 0..7 {
-            let index = row * 7 + col;
-            if u42::new(1 << index) & bitboard != u42::new(0) {
-                print!("{} ", '1');
-            }
-            else {
-                print!("{} ", '0');
-            }
-        }
-        println!("");
-    }
 }
