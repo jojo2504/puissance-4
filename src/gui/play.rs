@@ -15,7 +15,10 @@ pub fn input_difficulty() -> i32 {
             }
         };
 
-        if resolved_input.is_ok() {
+        if let Ok(input) = resolved_input {
+            if input < 1 || input > 14 {
+                continue;
+            } 
             return resolved_input.unwrap() as i32;
         }
         else {

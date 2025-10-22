@@ -212,6 +212,11 @@ impl Search {
         let mut search2 = Search::new(depth2);
         let mut move_history = String::new();
         loop {
+            if game.board.bitboard == u42::MAX {
+                println!("Tie");
+                break;
+            }
+
             if let Some(best_move) = search1.think(&mut game) {
                 game.make_push(best_move);
                 move_history += &best_move.to_string();
@@ -227,14 +232,15 @@ impl Search {
                     super::engine::Color::Red => println!("Red won!"),
                     super::engine::Color::Yellow => println!("Yellow won!"),
                 }
-                game.board.display_board();
-                println!("{}", move_history);
-                println!("Red: Negamax(depth={})", depth1);
-                println!("Yellow: Negamax(depth={})", depth2);
-                println!();
                 break;
             }
         }
+        
+        game.board.display_board();
+        println!("{}", move_history);
+        println!("Red: Negamax(depth={})", depth1);
+        println!("Yellow: Negamax(depth={})", depth2);
+        println!();
     }
 }
 

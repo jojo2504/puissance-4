@@ -250,34 +250,45 @@ impl Game {
     pub fn check_win(&self) -> Option<Color> {
         if let Some(last_flipped_bit) = self.board.history.last() {
             let color_bitboard = self.board.color_bitboard ^ self.board.bitboard;
-            
+            let a_clear: u42 = !File::A.mask();
+            let g_clear: u42 = !File::G.mask();
+
             // vertical go down;
             // println!("color board: {:042b}", color_bitboard);
-            let mut m = color_bitboard & (color_bitboard >> (WIDTH));
+            let m = color_bitboard & (color_bitboard >> (WIDTH));
             if (m & (m >> (2*(WIDTH)))) != EMPTY_BOARD {
                 // println!("win v");
                 return Some(last_flipped_bit.1);
             }
             
             // horizontal, go left and right
-            let m1 = color_bitboard & (color_bitboard >> 1) & !File::A.mask() & !File::G.mask();
-            let m2 = color_bitboard & (color_bitboard << 1) & !File::A.mask() & !File::G.mask();
+            let m1 = color_bitboard & (color_bitboard >> 1) & a_clear & g_clear; // To detect pairs like [_ _ X X], check if a piece has a RIGHT neighbor
+            let m2 = color_bitboard & (color_bitboard << 1) & a_clear & g_clear; // To detect pairs like [X X _ _], check if a piece has a LEFT neighbor
             if (m1 & (m1 >> 2)) != EMPTY_BOARD || (m2 & (m2 << 2)) != EMPTY_BOARD {
                 // println!("win h: {:042b}", m);
                 return Some(last_flipped_bit.1);
             }
             
-            // Diagonal ↗ (up-right) - shift by WIDTH+1, go down left
-            m = color_bitboard & (color_bitboard >> (WIDTH + 1)) & !File::G.mask();
-            if (m & (m >> (2*(WIDTH + 1)))) != EMPTY_BOARD {
-                // println!("win /");
+            // Diagonal ↗ (up-right) - need to prevent wraparound on both shifts
+            // To detect pairs like 
+            //[_ _ _ X]
+            //[_ _ X _]
+            let m1 = color_bitboard & (color_bitboard >> (WIDTH + 1)) & a_clear & g_clear; 
+            // To detect pairs like 
+            // [_ X _ _]
+            // [X _ _ _]
+            let m2 = color_bitboard & (color_bitboard << (WIDTH + 1)) & a_clear & g_clear; 
+            if (m1 & (m1 >> 2 * (WIDTH + 1))) != EMPTY_BOARD || (m2 & (m2 << 2 * (WIDTH + 1))) != EMPTY_BOARD {
+                // println!("win h: {:042b}", m);
                 return Some(last_flipped_bit.1);
             }
-
-            // Diagonal ↖ (up-left) - shift by WIDTH-1, go down right
-            m = color_bitboard & (color_bitboard >> (WIDTH - 1)) & !File::A.mask();
-            if (m & (m >> (2*(WIDTH - 1)))) != EMPTY_BOARD {
-                // println!("win \\");
+            
+            // Diagonal ↖ (up-left) - need to prevent wraparound on both shifts
+            // Mask column A (and B for the second shift)
+            let m1 = color_bitboard & (color_bitboard >> (WIDTH - 1)) & a_clear & g_clear;
+            let m2 = color_bitboard & (color_bitboard << (WIDTH - 1)) & a_clear & g_clear;
+            if (m1 & (m1 >> 2 * (WIDTH - 1))) != EMPTY_BOARD || (m2 & (m2 << 2 * (WIDTH - 1))) != EMPTY_BOARD {
+                // println!("win h: {:042b}", m);
                 return Some(last_flipped_bit.1);
             }
         }
@@ -287,23 +298,21 @@ impl Game {
 
     /// Main function to start the game.
     pub fn run(&mut self) {
-        self.board.display_board();
-
         let depth = input_difficulty();
         let mut search = Search::new(depth);
-
+        
         let mut move_history = String::new();
+        self.board.display_board();
         loop {
             println!("choose a column to play (1-7): ");
             let col = play() - 1;
             if !self.get_possible_moves().contains(&col) {
                 continue;
             }
+            
             self.make_push(col);
             move_history += &col.to_string();
-
             self.board.display_board();
-            println!();
             
             if self.winner.is_some() {
                 println!("you won !");
@@ -315,7 +324,6 @@ impl Game {
                 self.make_push(best_move);
                 move_history += &best_move.to_string();
                 self.board.display_board();
-                println!();
             }
 
             if self.winner.is_some() {
