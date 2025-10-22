@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::{cmp::max, collections::HashMap};
 use ux::u42;
 
 use crate::api::engine::{Board, File, Game};
@@ -22,79 +22,6 @@ pub struct TTEntry {
 impl TTEntry {
     pub fn new() -> Self {
         Self {..Default::default()}
-    }
-}
-
-pub struct Search;
-
-impl Search {
-    fn negamax(game: &mut Game, depth: i32, mut alpha: i32, beta: i32, color: i32) -> i32 {
-        let alpha_orig = alpha;
-        
-        if let Some(tt_entry) = game.tt.get(&game.zobrist_key) && tt_entry.depth >= depth {
-            match tt_entry.flag {
-                NodeType::EXACT => return tt_entry.value,
-                NodeType::LOWERBOUND if tt_entry.value >= beta => return tt_entry.value,
-                NodeType::UPPERBOUND if tt_entry.value <= alpha => return tt_entry.value,
-                _ => ()
-            }
-        }
-
-        if depth == 0 || game.winner.is_some() {
-            return color * Evaluation::evaluate(&game.board);
-        }
-
-        let mut child_nodes = game.get_possible_moves();
-        child_nodes.sort_by_key(|&m| (m - 3).abs());
-        
-        let mut best_score = i32::MIN;
-
-        for child in child_nodes {
-            game.make_push(child);
-            best_score = max(best_score, Search::negamax(game, depth - 1, beta.saturating_neg(), alpha.saturating_neg(), -color).saturating_neg());
-            game.unmake_push();
-
-            alpha = max(alpha, best_score);
-            if alpha >= beta {
-                break;
-            }
-        }
-
-        let mut tt_entry = TTEntry::new();
-        if best_score <= alpha_orig {
-            tt_entry.flag = NodeType::UPPERBOUND;
-        }
-        else if best_score >= beta {
-            tt_entry.flag = NodeType::LOWERBOUND;
-        }
-        else {
-            tt_entry.flag = NodeType::EXACT;
-        }
-
-        tt_entry.depth = depth;
-        game.tt.insert(game.zobrist_key, tt_entry);
-
-        return best_score;
-    }
-
-    pub fn think(game: &mut Game) -> Option<i32> {
-        let all_moves = game.get_possible_moves();
-        let mut best_move: Option<i32> = None;
-        let mut best_score = i32::MIN;
-
-        for _move in all_moves {
-            game.make_push(_move);
-            let move_score = Search::negamax(game, 14, i32::MIN, i32::MAX, game.turn_color.to_int()).saturating_neg();
-            // println!("{}: {}", move_score, _move);
-            game.unmake_push();
-
-            if move_score > best_score {
-                best_move = Some(_move);
-                best_score = move_score;
-            }
-        }
-
-        best_move
     }
 }
 
@@ -192,6 +119,122 @@ impl Evaluation {
         score += center_pieces * 3;
 
         score
+    }
+}
+
+#[derive(Default)]
+pub struct Search {
+    pub depth: i32,
+    pub tt: HashMap<u64, TTEntry> // zobrist_key, TTEntry
+}
+
+impl Search {
+    pub fn new(depth: i32) -> Self {
+        Self { 
+            depth: depth,
+            ..Default::default()
+        }
+    }
+
+    fn negamax(&mut self, game: &mut Game, depth: i32, mut alpha: i32, beta: i32, color: i32) -> i32 {
+        let alpha_orig = alpha;
+        
+        if let Some(tt_entry) = self.tt.get(&game.zobrist_key) && tt_entry.depth >= depth {
+            match tt_entry.flag {
+                NodeType::EXACT => return tt_entry.value,
+                NodeType::LOWERBOUND if tt_entry.value >= beta => return tt_entry.value,
+                NodeType::UPPERBOUND if tt_entry.value <= alpha => return tt_entry.value,
+                _ => ()
+            }
+        }
+
+        if depth == 0 || game.winner.is_some() {
+            return color * Evaluation::evaluate(&game.board);
+        }
+
+        let mut child_nodes = game.get_possible_moves();
+        child_nodes.sort_by_key(|&m| (m - 3).abs());
+        
+        let mut best_score = i32::MIN;
+
+        for child in child_nodes {
+            game.make_push(child);
+            best_score = max(best_score, self.negamax(game, depth - 1, beta.saturating_neg(), alpha.saturating_neg(), -color).saturating_neg());
+            game.unmake_push();
+
+            alpha = max(alpha, best_score);
+            if alpha >= beta {
+                break;
+            }
+        }
+
+        let mut tt_entry = TTEntry::new();
+        if best_score <= alpha_orig {
+            tt_entry.flag = NodeType::UPPERBOUND;
+        }
+        else if best_score >= beta {
+            tt_entry.flag = NodeType::LOWERBOUND;
+        }
+        else {
+            tt_entry.flag = NodeType::EXACT;
+        }
+
+        tt_entry.depth = depth;
+        tt_entry.value = best_score;
+        self.tt.insert(game.zobrist_key, tt_entry);
+
+        return best_score;
+    }
+
+    pub fn think(&mut self, game: &mut Game) -> Option<i32> {
+        let all_moves = game.get_possible_moves();
+        let mut best_move: Option<i32> = None;
+        let mut best_score = i32::MIN;
+
+        for _move in all_moves {
+            game.make_push(_move);
+            let move_score = self.negamax(game, self.depth, i32::MIN, i32::MAX, game.turn_color.to_int()).saturating_neg();
+            // println!("{}: {}", move_score, _move);
+            game.unmake_push();
+
+            if move_score > best_score {
+                best_move = Some(_move);
+                best_score = move_score;
+            }
+        }
+
+        best_move
+    }
+
+    pub fn test_nets(depth1: i32, depth2: i32) {
+        let mut game = Game::new();
+        let mut search1 = Search::new(depth1);
+        let mut search2 = Search::new(depth2);
+        let mut move_history = String::new();
+        loop {
+            if let Some(best_move) = search1.think(&mut game) {
+                game.make_push(best_move);
+                move_history += &best_move.to_string();
+            }
+
+            if let Some(best_move) = search2.think(&mut game) {
+                game.make_push(best_move);
+                move_history += &best_move.to_string();
+            }
+            
+            if let Some(winner) = game.winner {
+                match winner {
+                    super::engine::Color::Red => println!("Red won!"),
+                    super::engine::Color::Yellow => println!("Yellow won!"),
+                }
+                game.board.display_board();
+                println!("{}", move_history);
+                println!("Red: Negamax(depth={})", depth1);
+                println!("Yellow: Negamax(depth={})", depth2);
+                println!();
+                break;
+            }
+        }
     }
 }
 

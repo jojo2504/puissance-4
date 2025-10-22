@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use rand::random;
 use ux::u42;
 
-use crate::{api::search::{Search, TTEntry}, gui::play::play};
+use crate::{api::search::{Search, TTEntry}, gui::play::{input_difficulty, play}};
 
 const EMPTY_BOARD:  u42 = u42::new(0);
 
@@ -15,7 +15,7 @@ const U42_LASTBIT:  u42 = u42::new(0x20000000000);
 const HEIGHT: i32 = 6;
 const WIDTH: i32 = 7;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub enum Color {
     #[default]
     Red = 1,
@@ -113,6 +113,9 @@ impl TryFrom<i32> for File {
     }
 }
 
+/// The Board struct only represent the board states and hisotry of all token bits played with their respective color.
+/// 
+/// Any logic related to interacting with the board is in [Game].
 #[derive(Default, Clone)]
 pub struct Board {
     // keeping track of global board to check for valid moves
@@ -162,12 +165,12 @@ impl Board {
     }
 }
 
+/// Game allows both player to interact with the [Board], while initiliazing and keeping tracks of the zobrist key for [Search]'s transposition table.
 #[derive(Default)]
 pub struct Game {
     pub board: Board,
     pub turn_color: Color,
     pub winner: Option<Color>,
-    pub tt: HashMap<u64, TTEntry>, // zobrist_key, TTEntry
     pub zobrist_key: u64
 }
 
@@ -178,7 +181,11 @@ impl Game {
         }
     }
 
-    // returns a vec of possible col to play
+    pub fn reset(&mut self) {
+        *self = Default::default();
+    }
+
+    /// Returns a `Vec<i32>` of possible columns to play
     pub fn get_possible_moves(&self) -> Vec<i32> {
         let mut result = Vec::new();
         result.reserve_exact(WIDTH as usize);
@@ -197,7 +204,7 @@ impl Game {
         result
     }
 
-    // we are assuming the input col has already been validated
+    /// Function helper to push a new token into the board.
     fn push(bitboard: &mut u42, color_bitboard: &mut u42, col: i32, history: &mut Vec<(u42, Color)>, token_color: Color, zobrist_key: &mut u64, heights: &mut [i32; 7]) {
         let new_bit = u42::new(1u64 << (col + heights[col as usize] * WIDTH));
         heights[col as usize] += 1;
@@ -208,19 +215,23 @@ impl Game {
         *zobrist_key ^= ZOBRIST_TABLE.token_square[Zobrist::get_index((new_bit, token_color)) as usize];
     }
     
+    /// We are assuming the input column has already been validated and must has been validated first.
+    /// Will call [`Self::push()`].
     pub fn make_push(&mut self, col: i32) {
         Self::push(&mut self.board.bitboard, &mut self.board.color_bitboard, col, &mut self.board.history, self.turn_color, &mut self.zobrist_key, &mut self.board.heights);
         self.winner = self.check_win(); 
         self.turn_color = self.turn_color.toggle();
     }
 
-    pub fn make_push_bulk(&mut self, action: &str) {
-        for char in action.chars().into_iter() {
+    /// Debug function to start from a game history.
+    pub fn make_push_bulk(&mut self, history: &str) {
+        for char in history.chars().into_iter() {
             let col: i32 = char.to_digit(10).unwrap() as i32;
             self.make_push(col);
         }
     }
 
+    /// Unmake the last move in history.
     pub fn unmake_push(&mut self) {
         self.turn_color = self.turn_color.toggle();
         let last_play = self.board.history.pop().unwrap();
@@ -235,6 +246,7 @@ impl Game {
         self.winner = None;
     }
 
+    /// Check if the board has a 4-alignment for the player who just played and returns his color if true.
     pub fn check_win(&self) -> Option<Color> {
         if let Some(last_flipped_bit) = self.board.history.last() {
             let color_bitboard = self.board.color_bitboard ^ self.board.bitboard;
@@ -243,7 +255,7 @@ impl Game {
             // println!("color board: {:042b}", color_bitboard);
             let mut m = color_bitboard & (color_bitboard >> (WIDTH));
             if (m & (m >> (2*(WIDTH)))) != EMPTY_BOARD {
-                println!("win v");
+                // println!("win v");
                 return Some(last_flipped_bit.1);
             }
             
@@ -251,21 +263,21 @@ impl Game {
             let m1 = color_bitboard & (color_bitboard >> 1) & !File::A.mask() & !File::G.mask();
             let m2 = color_bitboard & (color_bitboard << 1) & !File::A.mask() & !File::G.mask();
             if (m1 & (m1 >> 2)) != EMPTY_BOARD || (m2 & (m2 << 2)) != EMPTY_BOARD {
-                println!("win h: {:042b}", m);
+                // println!("win h: {:042b}", m);
                 return Some(last_flipped_bit.1);
             }
             
             // Diagonal ↗ (up-right) - shift by WIDTH+1, go down left
             m = color_bitboard & (color_bitboard >> (WIDTH + 1)) & !File::G.mask();
             if (m & (m >> (2*(WIDTH + 1)))) != EMPTY_BOARD {
-                println!("win /");
+                // println!("win /");
                 return Some(last_flipped_bit.1);
             }
 
             // Diagonal ↖ (up-left) - shift by WIDTH-1, go down right
             m = color_bitboard & (color_bitboard >> (WIDTH - 1)) & !File::A.mask();
             if (m & (m >> (2*(WIDTH - 1)))) != EMPTY_BOARD {
-                println!("win \\");
+                // println!("win \\");
                 return Some(last_flipped_bit.1);
             }
         }
@@ -273,13 +285,16 @@ impl Game {
         None
     }
 
+    /// Main function to start the game.
     pub fn run(&mut self) {
         self.board.display_board();
-        println!();
+
+        let depth = input_difficulty();
+        let mut search = Search::new(depth);
 
         let mut move_history = String::new();
         loop {
-            println!("choose a col to play(1-7): ");
+            println!("choose a column to play (1-7): ");
             let col = play() - 1;
             if !self.get_possible_moves().contains(&col) {
                 continue;
@@ -296,7 +311,7 @@ impl Game {
             }
 
             println!("AI is thinking...");
-            if let Some(best_move) = Search::think(self) {
+            if let Some(best_move) = search.think(self) {
                 self.make_push(best_move);
                 move_history += &best_move.to_string();
                 self.board.display_board();
@@ -311,25 +326,6 @@ impl Game {
 
         println!("{}", move_history);
 
-    }
-
-    pub fn reset(&mut self) {
-        *self = Default::default();
-    }
-
-    pub fn test_bulk(&mut self, history: &str) {
-        self.reset();
-        self.make_push_bulk(history);
-        self.board.display_board();
-        if let Some(color) = self.check_win() {
-            match color {
-                Color::Red => println!("red won"),
-                Color::Yellow => println!("yellow won"),
-            }
-        }
-        else {
-            println!("no one won");
-        }
     }
 }
 
