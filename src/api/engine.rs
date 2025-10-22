@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use rand::random;
 use ux::u42;
 
-use crate::{api::search::{Search, TTEntry}, gui::play::{input_difficulty, play}};
+use crate::{api::search::Search, gui::play::{input_difficulty, play}};
 
 const EMPTY_BOARD:  u42 = u42::new(0);
 

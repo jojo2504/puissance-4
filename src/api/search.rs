@@ -243,8 +243,3 @@ impl Search {
         println!();
     }
 }
-
-struct IterativeDeepening;
-
-impl IterativeDeepening {
-}
