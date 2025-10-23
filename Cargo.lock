@@ -431,6 +431,7 @@ dependencies = [
  "criterion",
  "once_cell",
  "rand",
+ "rayon",
  "rstest",
  "ux",
 ]

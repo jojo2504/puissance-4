@@ -166,7 +166,7 @@ impl Board {
 }
 
 /// Game allows both player to interact with the [Board], while initiliazing and keeping tracks of the zobrist key for [Search]'s transposition table.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Game {
     pub board: Board,
     pub turn_color: Color,

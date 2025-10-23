@@ -1,9 +1,10 @@
-use std::{cmp::max, collections::HashMap};
+use std::{cmp::max, collections::HashMap, sync::{Arc, Mutex}};
 use ux::u42;
 
 use crate::api::engine::{Board, File, Game};
+use rayon::prelude::*;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 enum NodeType {
     EXACT,
     LOWERBOUND,
@@ -12,7 +13,7 @@ enum NodeType {
     None
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TTEntry {
     flag: NodeType,
     depth: i32,
@@ -122,7 +123,7 @@ impl Evaluation {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Search {
     pub depth: i32,
     pub tt: HashMap<u64, TTEntry> // zobrist_key, TTEntry
@@ -188,22 +189,27 @@ impl Search {
 
     pub fn think(&mut self, game: &mut Game) -> Option<i32> {
         let all_moves = game.get_possible_moves();
-        let mut best_move: Option<i32> = None;
-        let mut best_score = i32::MIN;
+        let best_move= Arc::new(Mutex::new(None));
+        let best_score = Arc::new(Mutex::new(i32::MIN));
 
-        for _move in all_moves {
-            game.make_push(_move);
-            let move_score = self.negamax(game, self.depth, i32::MIN, i32::MAX, game.turn_color.to_int()).saturating_neg();
-            // println!("{}: {}", move_score, _move);
-            game.unmake_push();
+        let all_moves = all_moves.as_slice();
+        all_moves.par_iter().for_each(|_move| {
+            let mut game_copy = game.clone();
+            let mut search_copy = self.clone();
 
-            if move_score > best_score {
-                best_move = Some(_move);
-                best_score = move_score;
+            game_copy.make_push(*_move);
+            let color = game_copy.turn_color.to_int();
+            let move_score = search_copy.negamax(&mut game_copy, search_copy.depth, i32::MIN, i32::MAX, color).saturating_neg();
+            game_copy.unmake_push();
+            
+            let mut score_guard = best_score.lock().unwrap();
+            if move_score > *score_guard {
+                *score_guard = move_score;
+                *best_move.lock().unwrap() = Some(*_move);
             }
-        }
+        });
 
-        best_move
+        *best_move.lock().unwrap()
     }
 
     pub fn test_nets(depth1: i32, depth2: i32) {
